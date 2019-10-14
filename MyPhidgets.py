@@ -6,6 +6,8 @@ import time
 import simple_pid
 from matplotlib import pyplot
 import Display
+import threading
+
 
 class MyTile:
     def __init__(self, hub_serial, hub_port, relay_channel):
@@ -49,24 +51,20 @@ class ThermoTile:
         self.tile = MyTile(hub_serial, hub_port_tile, channels)
         self.thermo = MyThermo(hub_serial, hub_port_thermo, channels)
         self.pid = simple_pid.PID()
-        self.history = []
-        self.ticks = []
         self.set_point = set_point
         self.display = Display.Display(set_point)
 
     def run(self, n=False):
         counter = 0
-        self.pid.sample_time = 0.1
         self.pid.setpoint = self.set_point
-        self.pid.tunings = (0.5, 0.001, 0.01)
+        #self.pid.tunings = (0.75, 0.02, 0.75)
+        self.pid.tunings = (0.35, 0.1, 0.75)
         self.pid.output_limits = (-1, 1)
 
         duty_cycle = 0.5
         while True:
             start = time.time()
             current = self.thermo.get_temp()
-            #if current > self.set_point: current = 10000
-
             output = self.pid(current)
             duty_cycle = duty_cycle + output
 
@@ -75,19 +73,24 @@ class ThermoTile:
 
             self.tile.set_duty_cylce(duty_cycle)
             counter = counter + 1
-            self.history.append(current)
-            self.ticks.append(counter)
 
-            self.display.animate(current)
+            time.sleep(0.1)
 
-            if n and counter > n: break
+            if counter % 50 == 0: self.display.animate(current)
             done = time.time()
             duration = 1000 * (done - start)
-            txt = "%05.2fC  %05.2fC %04iMS" % (current, duty_cycle, duration)
+            txt = "%05.2fC  %05.2fDC %04iMS" % (current, duty_cycle, duration)
             print(txt)
-
+            if n and counter > n: break
         self.tile.set_duty_cylce(0)
 
 
-tt = ThermoTile(set_point=40, hub_serial=560175, channels=0)
-tt.run(3000)
+t0 = ThermoTile(set_point=30, hub_serial=560175, channels=0)
+t1 = ThermoTile(set_point=40, hub_serial=560175, channels=1)
+
+thread0 = threading.Thread(target=t0.run)
+thread1 = threading.Thread(target=t1.run)
+
+
+thread0.start()
+thread1.start()

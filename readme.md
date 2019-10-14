@@ -1,5 +1,11 @@
 https://www.phidgets.com/?view=code_samples&lang=Python
 
+# Thermocouple
+
+https://www.phidgets.com/?tier=3&catid=14&pcid=12&prodid=727
+
++ Precision: +-0.75C
+
 # Check for attachment
 
  lsusb

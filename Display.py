@@ -6,6 +6,7 @@ import numpy
 
 pyplot.ion()
 
+pyplot.style.use('bmh')
 
 class Display:
     def __init__(self, set_point):
@@ -23,8 +24,11 @@ class Display:
         self.line1, = self.temperature_axis.plot(self.x_values, self.temperature_series, 'r-')
 
         self.temperature_axis.plot(self.x_values, target_line, 'k-')
-        self.temperature_axis.plot(self.x_values, target_line - 1, 'k--')
-        self.temperature_axis.plot(self.x_values, target_line + 1, 'k--')
+        self.temperature_axis.plot(self.x_values, target_line - 0.5, 'k--')
+        self.temperature_axis.plot(self.x_values, target_line + 0.5, 'k--')
+        self.temperature_axis.plot(self.x_values, target_line - 0.25, 'k--')
+        self.temperature_axis.plot(self.x_values, target_line + 0.25, 'k--')
+
 
     def animate(self, temperature):
         # Update

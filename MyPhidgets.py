@@ -43,7 +43,7 @@ class MyThermo:
         self.sensor.close()
 
 
-class ThermoTile:
+class ThermoTile_Single:
     def __init__(self, set_point, hub_serial, channels):
         # Assume that relay channel 0 (tile) is instrumented with thermocouple 0, etc
         hub_port_tile = 0
@@ -52,45 +52,38 @@ class ThermoTile:
         self.thermo = MyThermo(hub_serial, hub_port_thermo, channels)
         self.pid = simple_pid.PID()
         self.set_point = set_point
-        self.display = Display.Display(set_point)
 
-    def run(self, n=False):
-        counter = 0
         self.pid.setpoint = self.set_point
-        #self.pid.tunings = (0.75, 0.02, 0.75)
         self.pid.tunings = (0.35, 0.1, 0.75)
         self.pid.output_limits = (-1, 1)
+        self.duty_cycle = 0.5
 
-        duty_cycle = 0.5
-        while True:
-            start = time.time()
-            current = self.thermo.get_temp()
-            output = self.pid(current)
-            duty_cycle = duty_cycle + output
-
-            if duty_cycle < 0: duty_cycle = 0
-            if duty_cycle > 1: duty_cycle = 1
-
-            self.tile.set_duty_cylce(duty_cycle)
-            counter = counter + 1
-
-            time.sleep(0.1)
-
-            if counter % 50 == 0: self.display.animate(current)
-            done = time.time()
-            duration = 1000 * (done - start)
-            txt = "%05.2fC  %05.2fDC %04iMS" % (current, duty_cycle, duration)
-            print(txt)
-            if n and counter > n: break
-        self.tile.set_duty_cylce(0)
+    def step(self):
+        current = self.thermo.get_temp()
+        output = self.pid(current)
+        self.duty_cycle = self.duty_cycle + output
+        if self.duty_cycle < 0: self.duty_cycle = 0
+        if self.duty_cycle > 1: self.duty_cycle = 1
+        self.tile.set_duty_cylce(self.duty_cycle)
+        return current
 
 
-t0 = ThermoTile(set_point=30, hub_serial=560175, channels=0)
-t1 = ThermoTile(set_point=40, hub_serial=560175, channels=1)
+class ThermoTiles:
+    def __init__(self, set_points):
+        self.thermo_tile_0 = ThermoTile_Single(set_point=set_points[0], hub_serial=560175, channels=0)
+        self.thermo_tile_1 = ThermoTile_Single(set_point=set_points[1], hub_serial=560175, channels=1)
+        self.display_0 = Display.Display(set_points[0])
+        self.display_1 = Display.Display(set_points[1])
 
-thread0 = threading.Thread(target=t0.run)
-thread1 = threading.Thread(target=t1.run)
+    def run(self):
+        for x in range(1000):
+            t0 = self.thermo_tile_0.step()
+            t1 = self.thermo_tile_1.step()
+
+            if x%100==0:
+                self.display_0.animate(t0)
+                self.display_1.animate(t1)
 
 
-thread0.start()
-thread1.start()
+t = ThermoTiles([32, 40])
+t.run()

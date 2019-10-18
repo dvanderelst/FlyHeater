@@ -1,12 +1,10 @@
-from Phidget22.PhidgetException import *
-from Phidget22.Phidget import *
-from Phidget22.Devices.TemperatureSensor import *
-from Phidget22.Devices.DigitalOutput import *
 import time
+
 import simple_pid
-from matplotlib import pyplot
+from Phidget22.Devices.DigitalOutput import *
+from Phidget22.Devices.TemperatureSensor import *
+
 import Display
-import threading
 
 
 class MyTile:
@@ -51,9 +49,8 @@ class ThermoTile_Single:
         self.tile = MyTile(hub_serial, hub_port_tile, channels)
         self.thermo = MyThermo(hub_serial, hub_port_thermo, channels)
         self.pid = simple_pid.PID()
-        self.set_point = set_point
 
-        self.pid.setpoint = self.set_point
+        self.pid.setpoint = set_point
         self.pid.tunings = (0.35, 0.1, 0.75)
         self.pid.output_limits = (-1, 1)
         self.duty_cycle = 0.5
@@ -72,18 +69,31 @@ class ThermoTiles:
     def __init__(self, set_points):
         self.thermo_tile_0 = ThermoTile_Single(set_point=set_points[0], hub_serial=560175, channels=0)
         self.thermo_tile_1 = ThermoTile_Single(set_point=set_points[1], hub_serial=560175, channels=1)
-        self.display_0 = Display.Display(set_points[0])
-        self.display_1 = Display.Display(set_points[1])
+        self.thermo_tile_2 = ThermoTile_Single(set_point=set_points[2], hub_serial=560175, channels=2)
+        self.thermo_tile_3 = ThermoTile_Single(set_point=set_points[3], hub_serial=560175, channels=3)
+        self.display = Display.Display(set_points)
 
     def run(self):
-        for x in range(1000):
+        sleep_time = 0.05
+        iteration = 0
+        while True:
             t0 = self.thermo_tile_0.step()
+            time.sleep(sleep_time)
+
             t1 = self.thermo_tile_1.step()
+            time.sleep(sleep_time)
 
-            if x%100==0:
-                self.display_0.animate(t0)
-                self.display_1.animate(t1)
+            t2 = self.thermo_tile_2.step()
+            time.sleep(sleep_time)
+
+            t3 = self.thermo_tile_3.step()
+            time.sleep(sleep_time)
+
+            print(t0, t1, t2, t3)
+            if iteration % 10 == 0: self.display.animate([t0, t1, t2, t3])
+            iteration = iteration + 1
 
 
-t = ThermoTiles([32, 40])
+
+t = ThermoTiles([32, 40, 40, 37])
 t.run()

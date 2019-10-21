@@ -3,9 +3,9 @@ import SimpleLogger
 import simple_pid
 from Phidget22.Devices.DigitalOutput import *
 from Phidget22.Devices.TemperatureSensor import *
-
+from Phidget22.PhidgetException import *
 import Display
-
+import traceback
 
 class MyTile:
     def __init__(self, hub_serial, hub_port, relay_channel):
@@ -14,12 +14,16 @@ class MyTile:
         self.relay.setHubPort(hub_port)
         self.relay.setDeviceSerialNumber(hub_serial)
         self.relay.openWaitForAttachment(5000)
+        self.relay_channel = relay_channel
 
     def set_state(self, state):
         self.relay.setState(state)
 
-    def set_duty_cylce(self, duty_cycle):
-        self.relay.setDutyCycle(duty_cycle)
+    def set_duty_cyclce(self, duty_cyccle):
+        try:
+            self.relay.setDutyCycle(duty_cyccle)
+        except PhidgetException as exception:
+            print('Error on tile channel', self.relay_channel)
 
     def __del__(self):
         self.relay.close()
@@ -32,10 +36,17 @@ class MyThermo:
         self.sensor.setChannel(thermo_channel)
         self.sensor.setDeviceSerialNumber(hub_serial)
         self.sensor.openWaitForAttachment(5000)
+        self.previous_temp = 0
+        self.thermo_channel = thermo_channel
 
     def get_temp(self):
-        temp = self.sensor.getTemperature()
-        return temp
+        try:
+            temp = self.sensor.getTemperature()
+            self.previous_temp = temp
+            return temp
+        except PhidgetException as exception:
+            print('Error on thermo channel', self.thermo_channel)
+            return self.previous_temp
 
     def __del__(self):
         self.sensor.close()
@@ -51,7 +62,7 @@ class ThermoTile_Single:
         self.pid = simple_pid.PID()
 
         self.pid.setpoint = set_point
-        self.pid.tunings = (0.35, 0.1, 0.75)
+        self.pid.tunings = (0.35, 0.1, 0.7)
         self.pid.output_limits = (-1, 1)
         self.duty_cycle = 0.5
 
@@ -61,7 +72,7 @@ class ThermoTile_Single:
         self.duty_cycle = self.duty_cycle + output
         if self.duty_cycle < 0: self.duty_cycle = 0
         if self.duty_cycle > 1: self.duty_cycle = 1
-        self.tile.set_duty_cylce(self.duty_cycle)
+        self.tile.set_duty_cyclce(self.duty_cycle)
         return current
 
 
@@ -78,10 +89,14 @@ class ThermoTiles:
         self.thermo_tile_3 = ThermoTile_Single(set_point=set_points[3], hub_serial=560175, channels=3)
         if self.do_plot: self.display = Display.Display(set_points)
 
+    @property
+    def log(self):
+        return self.logger.export()
+
     def plot_and_save(self, t0, t1, t2, t3):
         if self.do_plot: self.display.animate([t0, t1, t2, t3])
         data = self.logger.export()
-        data.to_excel('log.xls')
+        data.to_excel(self.log_name)
 
     def print(self, time_running, t0, t1, t2, t3):
         error_0 = t0 - self.set_points[0]
@@ -90,15 +105,14 @@ class ThermoTiles:
         error_3 = t3 - self.set_points[3]
 
         t = '%+05i' % time_running
-
         temps = '%02.2f %02.2f %02.2f %02.2f' % (t0, t1, t2, t3)
         errors = '%+06.2f %+06.2f %+06.2f %+06.2f' % (error_0, error_1, error_2, error_3)
 
         print(t, temps, errors)
 
-    def run(self, duration=None):
-        small_sleep_time = 0.01
-        big_sleep_time = 0.01
+    def run(self, duration=None, wait_scale=1):
+        small_sleep_time = 0.01 * wait_scale
+        big_sleep_time = 0.01 * wait_scale
         iteration = 0
         start_time = time.time()
         while True:
@@ -136,10 +150,14 @@ class ThermoTiles:
 
             self.print(time_running, t0, t1, t2, t3)
 
-            if iteration % 100 == 0: self.plot_and_save(t0, t1, t2, t3)
+            if iteration % 50 == 0: self.plot_and_save(t0, t1, t2, t3)
             if duration and time_running > duration: break
             iteration = iteration + 1
             time.sleep(big_sleep_time)
 
         self.plot_and_save(t0, t1, t2, t3)
+        self.thermo_tile_0.tile.set_duty_cyclce(0)
+        self.thermo_tile_1.tile.set_duty_cyclce(0)
+        self.thermo_tile_2.tile.set_duty_cyclce(0)
+        self.thermo_tile_3.tile.set_duty_cyclce(0)
         print('Done')

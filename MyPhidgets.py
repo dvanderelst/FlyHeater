@@ -6,6 +6,7 @@ from Phidget22.Devices.TemperatureSensor import *
 from Phidget22.PhidgetException import *
 import Display
 import traceback
+import math
 
 class MyTile:
     def __init__(self, hub_serial, hub_port, relay_channel):
@@ -15,13 +16,16 @@ class MyTile:
         self.relay.setDeviceSerialNumber(hub_serial)
         self.relay.openWaitForAttachment(5000)
         self.relay_channel = relay_channel
+        self.previous_duty_cycle = 0
 
     def set_state(self, state):
         self.relay.setState(state)
 
-    def set_duty_cyclce(self, duty_cyccle):
+    def set_duty_cyclce(self, duty_cycle):
+        duty_cycle = (round(duty_cycle * 100)) / 100
         try:
-            self.relay.setDutyCycle(duty_cyccle)
+            self.relay.setDutyCycle(duty_cycle)
+            self.previous_duty_cycle = duty_cycle
         except PhidgetException as exception:
             print('Error on tile channel', self.relay_channel)
 
@@ -62,7 +66,7 @@ class ThermoTile_Single:
         self.pid = simple_pid.PID()
 
         self.pid.setpoint = set_point
-        self.pid.tunings = (0.35, 0.1, 0.7)
+        self.pid.tunings = (0.25, 0.1, 0.5)
         self.pid.output_limits = (-1, 1)
         self.duty_cycle = 0.5
 
@@ -133,24 +137,24 @@ class ThermoTiles:
             time.sleep(small_sleep_time)
 
             time_running = time.time() - start_time
-            self.logger['time'] = time_running
-            self.logger['iteration'] = iteration
-            self.logger['stamp0'] = stamp0
-            self.logger['stamp1'] = stamp1
-            self.logger['stamp2'] = stamp2
-            self.logger['stamp3'] = stamp3
-            self.logger['t0'] = t0
-            self.logger['t1'] = t1
-            self.logger['t2'] = t2
-            self.logger['t3'] = t3
-            self.logger['sp0'] = self.set_points[0]
-            self.logger['sp1'] = self.set_points[1]
-            self.logger['sp2'] = self.set_points[2]
-            self.logger['sp3'] = self.set_points[3]
+            # self.logger['time'] = time_running
+            # self.logger['iteration'] = iteration
+            # self.logger['stamp0'] = stamp0
+            # self.logger['stamp1'] = stamp1
+            # self.logger['stamp2'] = stamp2
+            # self.logger['stamp3'] = stamp3
+            # self.logger['t0'] = t0
+            # self.logger['t1'] = t1
+            # self.logger['t2'] = t2
+            # self.logger['t3'] = t3
+            # self.logger['sp0'] = self.set_points[0]
+            # self.logger['sp1'] = self.set_points[1]
+            # self.logger['sp2'] = self.set_points[2]
+            # self.logger['sp3'] = self.set_points[3]
 
             self.print(time_running, t0, t1, t2, t3)
 
-            if iteration % 50 == 0: self.plot_and_save(t0, t1, t2, t3)
+            #if iteration % 50 == 0: self.plot_and_save(t0, t1, t2, t3)
             if duration and time_running > duration: break
             iteration = iteration + 1
             time.sleep(big_sleep_time)

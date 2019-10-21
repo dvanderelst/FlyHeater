@@ -2,7 +2,7 @@ import MyPhidgets
 from matplotlib import pyplot
 
 duration = 60 * 5
-wait_scale = 1
+wait_scale = 0
 set_points = [40, 40, 40, 40]
 t = MyPhidgets.ThermoTiles(set_points=set_points, do_plot=True)
 t.run(duration=duration, wait_scale=wait_scale)

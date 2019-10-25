@@ -6,6 +6,7 @@ from Phidget22.Devices.TemperatureSensor import *
 from Phidget22.PhidgetException import *
 import Display
 import traceback
+import math
 
 class MyTile:
     def __init__(self, hub_serial, hub_port, relay_channel):
@@ -15,13 +16,17 @@ class MyTile:
         self.relay.setDeviceSerialNumber(hub_serial)
         self.relay.openWaitForAttachment(5000)
         self.relay_channel = relay_channel
+        self.previous_duty_cycle = 100
 
     def set_state(self, state):
         self.relay.setState(state)
 
-    def set_duty_cyclce(self, duty_cyccle):
+    def set_duty_cyclce(self, duty_cycle):
         try:
-            self.relay.setDutyCycle(duty_cyccle)
+            diff = math.fabs(self.previous_duty_cycle - duty_cycle)
+            if diff > 0.05:
+                self.relay.setDutyCycle(duty_cycle)
+                self.previous_duty_cycle = duty_cycle
         except PhidgetException as exception:
             print('Error on tile channel', self.relay_channel)
 
@@ -53,10 +58,11 @@ class MyThermo:
 
 
 class ThermoTile_Single:
-    def __init__(self, set_point, hub_serial, channels):
+    def __init__(self, set_point, hub_serial, channels, control_sign=1):
         # Assume that relay channel 0 (tile) is instrumented with thermocouple 0, etc
         hub_port_tile = 0
         hub_port_thermo = 1
+        self.control_sign = control_sign
         self.tile = MyTile(hub_serial, hub_port_tile, channels)
         self.thermo = MyThermo(hub_serial, hub_port_thermo, channels)
         self.pid = simple_pid.PID()
@@ -69,7 +75,7 @@ class ThermoTile_Single:
     def step(self):
         current = self.thermo.get_temp()
         output = self.pid(current)
-        self.duty_cycle = self.duty_cycle + output
+        self.duty_cycle = self.duty_cycle + output * self.control_sign
         if self.duty_cycle < 0: self.duty_cycle = 0
         if self.duty_cycle > 1: self.duty_cycle = 1
         self.tile.set_duty_cyclce(self.duty_cycle)
@@ -77,26 +83,18 @@ class ThermoTile_Single:
 
 
 class ThermoTiles:
-    def __init__(self, set_points, log_name='log.xls', do_plot=False):
-        self.logger = SimpleLogger.Logger()
+    def __init__(self, set_points, control_signs=[1, 1, 1, 1], log_name='log.xls', do_plot=False):
         self.log_name = log_name
         self.do_plot = do_plot
         self.set_points = set_points
+        self.control_signs = control_signs
+        self.logger = SimpleLogger.Logger()
 
-        self.thermo_tile_0 = ThermoTile_Single(set_point=set_points[0], hub_serial=560175, channels=0)
-        self.thermo_tile_1 = ThermoTile_Single(set_point=set_points[1], hub_serial=560175, channels=1)
-        self.thermo_tile_2 = ThermoTile_Single(set_point=set_points[2], hub_serial=560175, channels=2)
-        self.thermo_tile_3 = ThermoTile_Single(set_point=set_points[3], hub_serial=560175, channels=3)
-        if self.do_plot: self.display = Display.Display(set_points)
-
-    @property
-    def log(self):
-        return self.logger.export()
-
-    def plot_and_save(self, t0, t1, t2, t3):
-        if self.do_plot: self.display.animate([t0, t1, t2, t3])
-        data = self.logger.export()
-        data.to_excel(self.log_name)
+        self.thermo_tile_0 = ThermoTile_Single(set_point=set_points[0], control_sign=control_signs[0], hub_serial=560175, channels=0)
+        self.thermo_tile_1 = ThermoTile_Single(set_point=set_points[1], control_sign=control_signs[1], hub_serial=560175, channels=1)
+        self.thermo_tile_2 = ThermoTile_Single(set_point=set_points[2], control_sign=control_signs[2], hub_serial=560175, channels=2)
+        self.thermo_tile_3 = ThermoTile_Single(set_point=set_points[3], control_sign=control_signs[3], hub_serial=560175, channels=3)
+        # if self.do_plot: self.display = Display.Display(set_points)
 
     def print(self, time_running, t0, t1, t2, t3):
         error_0 = t0 - self.set_points[0]
@@ -116,29 +114,30 @@ class ThermoTiles:
         iteration = 0
         start_time = time.time()
         while True:
-            stamp0 = time.asctime()
+            stamp = time.asctime()
             t0 = self.thermo_tile_0.step()
             time.sleep(small_sleep_time)
 
-            stamp1 = time.asctime()
             t1 = self.thermo_tile_1.step()
             time.sleep(small_sleep_time)
 
-            stamp2 = time.asctime()
             t2 = self.thermo_tile_2.step()
             time.sleep(small_sleep_time)
 
-            stamp3 = time.asctime()
             t3 = self.thermo_tile_3.step()
             time.sleep(small_sleep_time)
 
             time_running = time.time() - start_time
+
+            self.print(time_running, t0, t1, t2, t3)
+
+            if duration and time_running > duration: break
+            iteration = iteration + 1
+            time.sleep(big_sleep_time)
+
             self.logger['time'] = time_running
             self.logger['iteration'] = iteration
-            self.logger['stamp0'] = stamp0
-            self.logger['stamp1'] = stamp1
-            self.logger['stamp2'] = stamp2
-            self.logger['stamp3'] = stamp3
+            self.logger['stamp'] = stamp
             self.logger['t0'] = t0
             self.logger['t1'] = t1
             self.logger['t2'] = t2
@@ -148,14 +147,6 @@ class ThermoTiles:
             self.logger['sp2'] = self.set_points[2]
             self.logger['sp3'] = self.set_points[3]
 
-            self.print(time_running, t0, t1, t2, t3)
-
-            if iteration % 50 == 0: self.plot_and_save(t0, t1, t2, t3)
-            if duration and time_running > duration: break
-            iteration = iteration + 1
-            time.sleep(big_sleep_time)
-
-        self.plot_and_save(t0, t1, t2, t3)
         self.thermo_tile_0.tile.set_duty_cyclce(0)
         self.thermo_tile_1.tile.set_duty_cyclce(0)
         self.thermo_tile_2.tile.set_duty_cyclce(0)

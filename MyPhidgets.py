@@ -8,6 +8,7 @@ import Display
 import traceback
 import math
 
+
 class MyTile:
     def __init__(self, hub_serial, hub_port, relay_channel):
         self.relay = DigitalOutput()
@@ -89,52 +90,60 @@ class ThermoTiles:
         self.set_points = set_points
         self.control_signs = control_signs
         self.logger = SimpleLogger.Logger()
+        self.save_interval = 25
 
-        self.thermo_tile_0 = ThermoTile_Single(set_point=set_points[0], control_sign=control_signs[0], hub_serial=560175, channels=0)
-        self.thermo_tile_1 = ThermoTile_Single(set_point=set_points[1], control_sign=control_signs[1], hub_serial=560175, channels=1)
-        self.thermo_tile_2 = ThermoTile_Single(set_point=set_points[2], control_sign=control_signs[2], hub_serial=560175, channels=2)
-        self.thermo_tile_3 = ThermoTile_Single(set_point=set_points[3], control_sign=control_signs[3], hub_serial=560175, channels=3)
-        # if self.do_plot: self.display = Display.Display(set_points)
+        self.thermo_tile_0 = ThermoTile_Single(set_point=set_points[0], control_sign=control_signs[0],
+                                               hub_serial=560175, channels=0)
+        self.thermo_tile_1 = ThermoTile_Single(set_point=set_points[1], control_sign=control_signs[1],
+                                               hub_serial=560175, channels=1)
+        self.thermo_tile_2 = ThermoTile_Single(set_point=set_points[2], control_sign=control_signs[2],
+                                               hub_serial=560175, channels=2)
+        self.thermo_tile_3 = ThermoTile_Single(set_point=set_points[3], control_sign=control_signs[3],
+                                               hub_serial=560175, channels=3)
+        if self.do_plot: self.display = Display.Display(set_points)
 
-    def print(self, time_running, t0, t1, t2, t3):
+    def print(self, iteration, time_running, t0, t1, t2, t3):
         error_0 = t0 - self.set_points[0]
         error_1 = t1 - self.set_points[1]
         error_2 = t2 - self.set_points[2]
         error_3 = t3 - self.set_points[3]
 
-        t = '%+05i' % time_running
+        i = '%6i' % iteration
+        t = '%05i' % time_running
         temps = '%02.2f %02.2f %02.2f %02.2f' % (t0, t1, t2, t3)
         errors = '%+06.2f %+06.2f %+06.2f %+06.2f' % (error_0, error_1, error_2, error_3)
 
-        print(t, temps, errors)
+        print(i, t, '|', temps, '|', errors)
 
     def run(self, duration=None, wait_scale=1):
-        small_sleep_time = 0.01 * wait_scale
-        big_sleep_time = 0.01 * wait_scale
+        between_polling_sleep = 0.01 * wait_scale
+        iteration_sleep = 0.01 * wait_scale
         iteration = 0
         start_time = time.time()
         while True:
             stamp = time.asctime()
+            # Update channel 0
             t0 = self.thermo_tile_0.step()
-            time.sleep(small_sleep_time)
-
+            time.sleep(between_polling_sleep)
+            # Update channel 1
             t1 = self.thermo_tile_1.step()
-            time.sleep(small_sleep_time)
-
+            time.sleep(between_polling_sleep)
+            # Update channel 2
             t2 = self.thermo_tile_2.step()
-            time.sleep(small_sleep_time)
-
+            time.sleep(between_polling_sleep)
+            # Update channel 3
             t3 = self.thermo_tile_3.step()
-            time.sleep(small_sleep_time)
+            time.sleep(between_polling_sleep)
 
             time_running = time.time() - start_time
-
-            self.print(time_running, t0, t1, t2, t3)
-
+            # Print output
+            self.print(iteration, time_running, t0, t1, t2, t3)
             if duration and time_running > duration: break
-            iteration = iteration + 1
-            time.sleep(big_sleep_time)
-
+            if iteration % self.save_interval == 0:
+                self.display.animate([t0, t1, t2, t3])
+                df = self.logger.export()
+                df.to_excel(self.log_name)
+            # Save data to logger
             self.logger['time'] = time_running
             self.logger['iteration'] = iteration
             self.logger['stamp'] = stamp
@@ -146,6 +155,9 @@ class ThermoTiles:
             self.logger['sp1'] = self.set_points[1]
             self.logger['sp2'] = self.set_points[2]
             self.logger['sp3'] = self.set_points[3]
+
+            time.sleep(iteration_sleep)
+            iteration = iteration + 1
 
         self.thermo_tile_0.tile.set_duty_cyclce(0)
         self.thermo_tile_1.tile.set_duty_cyclce(0)

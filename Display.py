@@ -14,7 +14,7 @@ class Display:
         self.fig = pyplot.figure(figsize=(20, 10))
         self.x_values = range(self.display_length)
 
-        # 0
+        # 0 ##############################################################################
         self.temperature_series0 = [0] * self.display_length
 
         self.temperature_axis0 = self.fig.add_subplot(2, 2, 1)
@@ -28,10 +28,9 @@ class Display:
         self.temperature_axis0.plot(self.x_values, target_line + 0.5, 'k--')
         self.temperature_axis0.plot(self.x_values, target_line - 0.25, 'k--')
         self.temperature_axis0.plot(self.x_values, target_line + 0.25, 'k--')
-
         self.temperature_axis0.set_title('Probe 0')
 
-        # 1
+        # 1 ##############################################################################
         self.temperature_series1 = [0] * self.display_length
 
         self.temperature_axis1 = self.fig.add_subplot(2, 2, 2)
@@ -45,10 +44,9 @@ class Display:
         self.temperature_axis1.plot(self.x_values, target_line + 0.5, 'k--')
         self.temperature_axis1.plot(self.x_values, target_line - 0.25, 'k--')
         self.temperature_axis1.plot(self.x_values, target_line + 0.25, 'k--')
-
         self.temperature_axis1.set_title('Probe 1')
 
-        # 2
+        # 2 ##############################################################################
         self.temperature_series2 = [0] * self.display_length
 
         self.temperature_axis2 = self.fig.add_subplot(2, 2, 3)
@@ -62,10 +60,9 @@ class Display:
         self.temperature_axis2.plot(self.x_values, target_line + 0.5, 'k--')
         self.temperature_axis2.plot(self.x_values, target_line - 0.25, 'k--')
         self.temperature_axis2.plot(self.x_values, target_line + 0.25, 'k--')
-
         self.temperature_axis2.set_title('Probe 2')
 
-        # 3
+        # 3 ##############################################################################
         self.temperature_series3 = [0] * self.display_length
 
         self.temperature_axis3 = self.fig.add_subplot(2, 2, 4)
@@ -79,10 +76,7 @@ class Display:
         self.temperature_axis3.plot(self.x_values, target_line + 0.5, 'k--')
         self.temperature_axis3.plot(self.x_values, target_line - 0.25, 'k--')
         self.temperature_axis3.plot(self.x_values, target_line + 0.25, 'k--')
-
         self.temperature_axis3.set_title('Probe 3')
-
-
 
     def animate(self, temperatures):
         # Update 0

@@ -8,6 +8,8 @@ import Display
 import traceback
 import math
 
+hub_serial = 560175
+
 
 class MyTile:
     def __init__(self, hub_serial, hub_port, relay_channel):
@@ -61,6 +63,9 @@ class MyThermo:
 class ThermoTile_Single:
     def __init__(self, set_point, hub_serial, channels, control_sign=1):
         # Assume that relay channel 0 (tile) is instrumented with thermocouple 0, etc
+
+        # The phidget solid state relay should be connected to port 0 on the serial hub
+        # The thermocouple  phidget should be connected to port 1 on the serial hub
         hub_port_tile = 0
         hub_port_thermo = 1
         self.control_sign = control_sign
@@ -84,22 +89,23 @@ class ThermoTile_Single:
 
 
 class ThermoTiles:
-    def __init__(self, set_points, control_signs=[1, 1, 1, 1], log_name='log.xls', do_plot=False):
+    def __init__(self, set_points, control_signs=(1, 1, 1, 1), log_name='log.xls', do_plot=True):
         self.log_name = log_name
         self.do_plot = do_plot
         self.set_points = set_points
         self.control_signs = control_signs
         self.logger = SimpleLogger.Logger()
         self.save_interval = 25
+        self.display = False
 
         self.thermo_tile_0 = ThermoTile_Single(set_point=set_points[0], control_sign=control_signs[0],
-                                               hub_serial=560175, channels=0)
+                                               hub_serial=hub_serial, channels=0)
         self.thermo_tile_1 = ThermoTile_Single(set_point=set_points[1], control_sign=control_signs[1],
-                                               hub_serial=560175, channels=1)
+                                               hub_serial=hub_serial, channels=1)
         self.thermo_tile_2 = ThermoTile_Single(set_point=set_points[2], control_sign=control_signs[2],
-                                               hub_serial=560175, channels=2)
+                                               hub_serial=hub_serial, channels=2)
         self.thermo_tile_3 = ThermoTile_Single(set_point=set_points[3], control_sign=control_signs[3],
-                                               hub_serial=560175, channels=3)
+                                               hub_serial=hub_serial, channels=3)
         if self.do_plot: self.display = Display.Display(set_points)
 
     def print(self, iteration, time_running, t0, t1, t2, t3):
@@ -140,7 +146,7 @@ class ThermoTiles:
             self.print(iteration, time_running, t0, t1, t2, t3)
             if duration and time_running > duration: break
             if iteration % self.save_interval == 0:
-                self.display.animate([t0, t1, t2, t3])
+                if self.display: self.display.animate([t0, t1, t2, t3])
                 df = self.logger.export()
                 df.to_excel(self.log_name)
             # Save data to logger

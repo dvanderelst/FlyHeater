@@ -1,6 +1,6 @@
 https://www.phidgets.com/?view=code_samples&lang=Python
 
-# Thermocouple
+# Thermocouple properties
 
 https://www.phidgets.com/?tier=3&catid=14&pcid=12&prodid=727
 
@@ -10,14 +10,16 @@ https://www.phidgets.com/?tier=3&catid=14&pcid=12&prodid=727
 
  lsusb
  
-
 # Compile code
 
-./configure
+Compiling the code on linux. In the folder ``libphidget22-1.5.20191007``, run the following commands. 
+This also solves this error.
 
-sudo make
+```OSError: libphidget22.so.0: cannot open shared object file: No such file or directory```
 
-sudo make install
++ ./configure
++ sudo make
++ sudo make install
 
 # Setting udev Rules
 

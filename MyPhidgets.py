@@ -10,7 +10,7 @@ import Display
 import traceback
 import math
 
-Log.enable(LogLevel.PHIDGET_LOG_INFO, "phidget_log.log")
+Log.enable(LogLevel.PHIDGET_LOG_INFO, "phidget.log")
 
 # Serial numbers of the hub(s) and port on those hubs
 relay_hub = [561064, 0]
@@ -31,13 +31,7 @@ class MyRelay:
     def set_state(self, state):
         self.relay.setState(state)
 
-    def reconnect(self):
-        self.relay.close()
-        self.relay.openWaitForAttachment(5000)
-
     def set_duty_cycle(self, duty_cycle):
-        if self.updated_n%50==0: self.reconnect()
-
         try:
             diff = math.fabs(self.previous_duty_cycle - duty_cycle)
             if diff > 0.05:
@@ -91,9 +85,14 @@ class SingleThermalTile:
     def step(self):
         current = self.thermal.get_temp()
         output = self.pid(current)
-        self.duty_cycle = self.duty_cycle + (output * self.control_sign)
-        if self.duty_cycle < 0: self.duty_cycle = 0
-        if self.duty_cycle > 1: self.duty_cycle = 1
+
+        output = output * self.control_sign
+        if output < 0: self.duty_cycle = 0
+        if output > 0: self.duty_cycle = 1
+
+        #self.duty_cycle = self.duty_cycle + (output * self.control_sign)
+        #if self.duty_cycle < 0: self.duty_cycle = 0
+        #if self.duty_cycle > 1: self.duty_cycle = 1
         #self.relay.set_duty_cycle(self.duty_cycle)
         self.relay.set_state(self.duty_cycle)
         return current

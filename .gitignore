@@ -4,3 +4,7 @@
 __pycache__/
 
 *.xls
+
+libphidget22-1.5.20191007/
+
+*.log

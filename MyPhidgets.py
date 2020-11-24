@@ -19,32 +19,27 @@ thermal_hub = [560175, 0]
 
 class MyRelay:
     def __init__(self, hub_serial, hub_port, relay_channel):
-        self.updated_n = 0
         self.relay = DigitalOutput()
         self.relay.setChannel(relay_channel)
         self.relay.setHubPort(hub_port)
         self.relay.setDeviceSerialNumber(hub_serial)
         self.relay_channel = relay_channel
         self.relay.openWaitForAttachment(5000)
-        self.previous_duty_cycle = 100
+        self.relay.enableFailsafe(5000)
 
     def set_state(self, state):
-        self.relay.setState(state)
-
-    def set_duty_cycle(self, duty_cycle):
         try:
-            diff = math.fabs(self.previous_duty_cycle - duty_cycle)
-            if diff > 0.05:
-                self.relay.setDutyCycle(duty_cycle)
-                self.previous_duty_cycle = duty_cycle
-                self.updated_n = self.updated_n + 1
+            self.relay.resetFailsafe()
+            self.relay.setState(state)
         except PhidgetException as exception:
             print('Error on relay channel', self.relay_channel, exception)
             self.reconnect()
 
+    def get_state(self):
+        return self.relay.getState()
+
     def __del__(self):
         self.relay.close()
-
 
 
 class MyThermo:
@@ -80,21 +75,17 @@ class SingleThermalTile:
         self.pid.setpoint = set_point
         self.pid.tunings = (0.35, 0.1, 0.7)
         self.pid.output_limits = (-1, 1)
-        self.duty_cycle = 0.5
+        self.state = 0.5
 
     def step(self):
         current = self.thermal.get_temp()
         output = self.pid(current)
 
         output = output * self.control_sign
-        if output < 0: self.duty_cycle = 0
-        if output > 0: self.duty_cycle = 1
+        if output < 0: self.state = 0
+        if output > 0: self.state = 1
 
-        #self.duty_cycle = self.duty_cycle + (output * self.control_sign)
-        #if self.duty_cycle < 0: self.duty_cycle = 0
-        #if self.duty_cycle > 1: self.duty_cycle = 1
-        #self.relay.set_duty_cycle(self.duty_cycle)
-        self.relay.set_state(self.duty_cycle)
+        self.relay.set_state(self.state)
         return current
 
 
@@ -120,11 +111,18 @@ class ThermalTiles:
         error_2 = t2 - self.set_points[2]
         error_3 = t3 - self.set_points[3]
 
+        state_0 = self.thermal_tile_0.relay.get_state()
+        state_1 = self.thermal_tile_1.relay.get_state()
+        state_2 = self.thermal_tile_2.relay.get_state()
+        state_3 = self.thermal_tile_3.relay.get_state()
+
         i = '%6i' % iteration
         t = '%05i' % time_running
         temps = '%02.2f %02.2f %02.2f %02.2f' % (t0, t1, t2, t3)
+        states = '%i %i %i %i' % (state_0, state_1, state_2, state_3)
+
         errors = '%+06.2f %+06.2f %+06.2f %+06.2f' % (error_0, error_1, error_2, error_3)
-        print(i, t, '|', temps, '|', errors)
+        print(i, t, '|', temps, '|', errors, '|', states)
 
     def run(self, duration=None, update_sleep=1, iteration_sleep=1):
         iteration = 0
@@ -168,8 +166,8 @@ class ThermalTiles:
             time.sleep(iteration_sleep)
             iteration = iteration + 1
 
-        self.thermal_tile_0.relay.set_duty_cycle(0)
-        self.thermal_tile_1.relay.set_duty_cycle(0)
-        self.thermal_tile_2.relay.set_duty_cycle(0)
-        self.thermal_tile_3.relay.set_duty_cycle(0)
+        self.thermal_tile_0.relay.set_state(0)
+        self.thermal_tile_1.relay.set_state(0)
+        self.thermal_tile_2.relay.set_state(0)
+        self.thermal_tile_3.relay.set_state(0)
         print('Done')
